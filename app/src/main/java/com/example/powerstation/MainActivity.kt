@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.util.Locale
@@ -1070,6 +1071,7 @@ fun PowerStationScreen(
                     onScanClick = onScanClick,
                     onDeviceClick = onDeviceClick
                 )
+
                 !isConnected -> BoundStationConnectionScreen(
                     stationName = boundDeviceName ?: "PowerBank",
                     statusText = statusText,
@@ -1077,6 +1079,7 @@ fun PowerStationScreen(
                     onRetryConnect = onRetryConnect,
                     onUnbindClick = onUnbindClick
                 )
+
                 else -> StationMainScreen(
                     boundDeviceName = boundDeviceName,
                     connectedDeviceAddress = connectedDeviceAddress,
@@ -1276,6 +1279,7 @@ fun StationMainScreen(
                 stationName = boundDeviceName ?: "PowerBank",
                 status = powerStatus
             )
+
             MainTab.Controls -> StationControlsScreen(
                 contentPadding = innerPadding,
                 status = powerStatus,
@@ -1283,10 +1287,12 @@ fun StationMainScreen(
                 onSetSetting = onSetSetting,
                 onServiceCommand = onServiceCommand
             )
+
             MainTab.Settings -> SettingsScreen(
                 contentPadding = innerPadding,
                 boundDeviceName = boundDeviceName,
                 connectedDeviceAddress = connectedDeviceAddress,
+                status = powerStatus,
                 onDisconnectClick = onDisconnectClick,
                 onUnbindClick = onUnbindClick
             )
@@ -1307,7 +1313,7 @@ fun DashboardScreen(
             .padding(20.dp)
     ) {
         HeaderBlock(title = stationName)
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(16.dp))
         if (status == null) {
             WaitingStatusCard()
         } else {
@@ -1321,7 +1327,7 @@ fun HeaderBlock(title: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.Bottom
     ) {
         Text(
             modifier = Modifier.weight(1f),
@@ -1351,13 +1357,12 @@ fun WaitingStatusCard() {
 
 @Composable
 fun PowerStatusDashboard(status: PowerStatus) {
-    val socProgress = (status.socPercent / 100.0).toFloat().coerceIn(0f, 1f)
     val capacityBase = status.learnedCapacityWh.takeIf { it > 0.0 }
         ?: status.currentStoredWh.coerceAtLeast(1.0)
     val capacityProgress = (status.currentStoredWh / capacityBase).toFloat().coerceIn(0f, 1f)
 
-    if (status.apiVersion != 7) {
-        WarningCard("Получена версия API ${status.apiVersion}; приложение поддерживает API 7")
+    if (status.apiVersion != SUPPORTED_API_VERSION) {
+        WarningCard("Получена версия API ${status.apiVersion}; приложение поддерживает API $SUPPORTED_API_VERSION")
         Spacer(Modifier.height(12.dp))
     }
     if (status.thermalFault) {
@@ -1373,24 +1378,26 @@ fun PowerStatusDashboard(status: PowerStatus) {
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stateTitle(status.powerState), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        stateTitle(status.powerState),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(Modifier.height(4.dp))
-                    Text("${status.systemState} / ${status.powerState}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "${status.systemState} / ${status.powerState}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Text(
-                    formatNumber(status.socPercent, 1) + "%",
-                    style = MaterialTheme.typography.headlineLarge,
+                    text = formatNumber(status.socPercent, 1) + "%",
+                    fontSize = 42.sp,
+                    lineHeight = 48.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
 
             Spacer(Modifier.height(18.dp))
-            LinearProgressIndicator(
-                progress = { socProgress },
-                modifier = Modifier.fillMaxWidth().height(14.dp)
-            )
-            Spacer(Modifier.height(22.dp))
-
             MetricGrid(
                 listOf(
                     Triple("Мощность", formatNumber(status.powerW, 1), "W"),
@@ -1401,12 +1408,12 @@ fun PowerStatusDashboard(status: PowerStatus) {
                 )
             )
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(18.dp))
             Text("Энергия", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
                 progress = { capacityProgress },
-                modifier = Modifier.fillMaxWidth().height(10.dp)
+                modifier = Modifier.fillMaxWidth().height(14.dp)
             )
             Spacer(Modifier.height(8.dp))
             MetricRow("Осталось", formatNumber(status.currentStoredWh, 1) + " Wh")
@@ -1419,18 +1426,6 @@ fun PowerStatusDashboard(status: PowerStatus) {
             MetricRow("Силовой модуль", formatTemperature(status.tempPowerC))
             MetricRow("Выходящий воздух", formatTemperature(status.tempAirC))
             MetricRow("Вентилятор", "${status.fanPercent}%")
-            MetricRow("Состояние", if (status.thermalFault) "Ошибка" else "Норма")
-
-            Spacer(Modifier.height(18.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-            MetricRow("Версия прошивки", status.firmwareVersion)
-            MetricRow("Силовой выход", if (status.mosfetEnabled) "Включён" else "Выключен")
-            MetricRow("Bluetooth включён", if (status.bluetoothEnabled) "Да" else "Нет")
-            MetricRow("Bluetooth", if (status.bluetoothConnected) "Подключён" else "Не подключён")
-            MetricRow("Обучение ёмкости", if (status.learningActive) "Активно" else "Выключено")
-            MetricRow("Энергия цикла", formatNumber(status.learningDischargeWh, 1) + " Wh")
-            MetricRow("Циклов обучения", status.learnedCycles.toString())
         }
     }
 }
@@ -1452,14 +1447,18 @@ fun WarningCard(text: String) {
 
 @Composable
 fun MetricGrid(items: List<Triple<String, String, String>>) {
-    items.chunked(2).forEach { rowItems ->
+    items.chunked(2).forEachIndexed { index, rowItems ->
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             rowItems.forEach { item ->
                 MetricCard(Modifier.weight(1f), item.first, item.second, item.third)
             }
-            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+            if (rowItems.size == 1) {
+                Spacer(Modifier.weight(1f))
+            }
         }
-        Spacer(Modifier.height(10.dp))
+        if (index < (items.size - 1) / 2) {
+            Spacer(Modifier.height(5.dp))
+        }
     }
 }
 
@@ -1467,6 +1466,8 @@ fun MetricGrid(items: List<Triple<String, String, String>>) {
 fun MetricCard(modifier: Modifier, label: String, value: String, unit: String) {
     Card(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -1519,9 +1520,13 @@ fun StationControlsScreen(
             return@Column
         }
 
-        val compatible = status.apiVersion == 7 && settings.apiVersion == 7
+        val compatible = status.apiVersion == SUPPORTED_API_VERSION &&
+            settings.apiVersion == SUPPORTED_API_VERSION
         if (!compatible) {
-            WarningCard("Редактирование отключено: приложение поддерживает API 7, станция передала status=${status.apiVersion}, settings=${settings.apiVersion}.")
+            WarningCard(
+                "Редактирование отключено: приложение поддерживает API $SUPPORTED_API_VERSION, " +
+                    "станция передала status=${status.apiVersion}, settings=${settings.apiVersion}."
+            )
             return@Column
         }
 
@@ -1562,15 +1567,70 @@ fun StationControlsScreen(
 
         Spacer(Modifier.height(16.dp))
         SettingsSection("Аккумулятор") {
-            EditableNumberSetting("Лимит мощности", "Мощность разряда, при превышении которой отключается выход.", "powerLimitW", settings.powerLimitW, "W", 20.0, 300.0, 100.0, 0, onSetSetting)
-            EditableNumberSetting("Нижний порог напряжения", "Напряжение отключения выхода для защиты аккумуляторов.", "lowCutVoltageV", settings.lowCutVoltageV, "V", 8.0, 12.0, 11.0, 2, onSetSetting)
-            EditableNumberSetting("Текущий запас энергии", "Ручная коррекция расчётного остатка энергии.", "currentStoredWh", status.currentStoredWh, "Wh", 0.0, storedWhMax, storedWhMax, 1, onSetSetting)
+            EditableNumberSetting(
+                "Лимит мощности",
+                "Мощность разряда, при превышении которой отключается выход.",
+                "powerLimitW",
+                settings.powerLimitW,
+                "W",
+                20.0,
+                300.0,
+                100.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Нижний порог напряжения",
+                "Напряжение отключения выхода для защиты аккумуляторов.",
+                "lowCutVoltageV",
+                settings.lowCutVoltageV,
+                "V",
+                8.0,
+                12.0,
+                11.0,
+                2,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Текущий запас энергии",
+                "Ручная коррекция расчётного остатка энергии.",
+                "currentStoredWh",
+                status.currentStoredWh,
+                "Wh",
+                0.0,
+                storedWhMax,
+                storedWhMax,
+                1,
+                onSetSetting
+            )
         }
 
         Spacer(Modifier.height(16.dp))
         SettingsSection("Зарядка") {
-            EditableNumberSetting("Напряжение полного заряда", "Минимальное напряжение для распознавания полного заряда.", "fullVoltageV", settings.fullVoltageV, "V", 13.6, 14.8, 14.8, 2, onSetSetting)
-            EditableNumberSetting("Ток завершения зарядки", "Максимальный ток, при котором заряд считается завершённым.", "fullCurrentA", settings.fullCurrentA, "A", 0.05, 2.0, 0.2, 2, onSetSetting)
+            EditableNumberSetting(
+                "Напряжение полного заряда",
+                "Минимальное напряжение для распознавания полного заряда.",
+                "fullVoltageV",
+                settings.fullVoltageV,
+                "V",
+                13.6,
+                14.8,
+                14.8,
+                2,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Ток завершения зарядки",
+                "Максимальный ток, при котором заряд считается завершённым.",
+                "fullCurrentA",
+                settings.fullCurrentA,
+                "A",
+                0.05,
+                2.0,
+                0.2,
+                2,
+                onSetSetting
+            )
             ReadOnlySetting(
                 title = "Коэффициент зарядки",
                 description = "Рассчитывается и сохраняется прошивкой автоматически.",
@@ -1604,31 +1664,129 @@ fun StationControlsScreen(
         }
 
         Spacer(Modifier.height(16.dp))
-        SettingsSection("Ёмкость и обучение") {
-            EditableNumberSetting("Обученная ёмкость", "Фактическая ёмкость, используемая для расчёта заряда и ETA.", "learnedCapacityWh", status.learnedCapacityWh, "Wh", 150.0, 500.0, 500.0, 0, onSetSetting)
-            SliderSetting("Сила коррекции ёмкости", "Доля результата нового цикла в обновлении обученной ёмкости.", "learningCorrectionAlpha", settings.learningCorrectionAlpha, 0.25, "", 0.05, 0.50, 2, onSetSetting)
+        SettingsSection("Ёмкость") {
+            EditableNumberSetting(
+                "Обученная ёмкость",
+                "Фактическая ёмкость, используемая для расчёта заряда и ETA.",
+                "learnedCapacityWh",
+                status.learnedCapacityWh,
+                "Wh",
+                150.0,
+                500.0,
+                500.0,
+                0,
+                onSetSetting
+            )
+            SliderSetting(
+                "Сила коррекции ёмкости",
+                "Доля результата нового цикла в обновлении обученной ёмкости.",
+                "learningCorrectionAlpha",
+                settings.learningCorrectionAlpha,
+                0.25,
+                "",
+                0.05,
+                0.50,
+                2,
+                onSetSetting
+            )
         }
 
         Spacer(Modifier.height(16.dp))
         SettingsSection("Охлаждение") {
-            EditableNumberSetting("Минимальная скорость вентилятора", "Минимальная мощность вентилятора после успешного запуска.", "fanMinPercent", settings.fanMinPercent, "%", 20.0, 100.0, 40.0, 0, onSetSetting)
-            EditableNumberSetting("Стартовая скорость вентилятора", "Мощность вентилятора во время стартового импульса.", "fanStartPercent", settings.fanStartPercent, "%", 40.0, 100.0, 80.0, 0, onSetSetting)
-            EditableNumberSetting("Длительность стартового импульса", "Время повышенной мощности при каждом запуске вентилятора.", "fanStartBoostMs", settings.fanStartBoostMs, "ms", 100.0, 5000.0, 1000.0, 0, onSetSetting)
-            EditableNumberSetting("Температура выключения", "Ниже этой температуры вентилятор выключается.", "fanOffTemperatureC", settings.fanOffTemperatureC, "°C", 0.0, 100.0, 38.0, 0, onSetSetting)
-            EditableNumberSetting("Температура включения", "При этой температуре начинается охлаждение.", "fanOnTemperatureC", settings.fanOnTemperatureC, "°C", 0.0, 100.0, 42.0, 0, onSetSetting)
-            EditableNumberSetting("Температура максимальной скорости", "При этой температуре вентилятор переходит на 100%.", "fanFullTemperatureC", settings.fanFullTemperatureC, "°C", 0.0, 100.0, 60.0, 0, onSetSetting)
+            EditableNumberSetting(
+                "Минимальная скорость вентилятора",
+                "Минимальная мощность вентилятора после успешного запуска.",
+                "fanMinPercent",
+                settings.fanMinPercent,
+                "%",
+                20.0,
+                100.0,
+                40.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Стартовая скорость вентилятора",
+                "Мощность вентилятора во время стартового импульса.",
+                "fanStartPercent",
+                settings.fanStartPercent,
+                "%",
+                40.0,
+                100.0,
+                80.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Длительность стартового импульса",
+                "Время повышенной мощности при каждом запуске вентилятора.",
+                "fanStartBoostMs",
+                settings.fanStartBoostMs,
+                "ms",
+                100.0,
+                5000.0,
+                1000.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Температура выключения",
+                "Ниже этой температуры вентилятор выключается.",
+                "fanOffTemperatureC",
+                settings.fanOffTemperatureC,
+                "°C",
+                0.0,
+                100.0,
+                38.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Температура включения",
+                "При этой температуре начинается охлаждение.",
+                "fanOnTemperatureC",
+                settings.fanOnTemperatureC,
+                "°C",
+                0.0,
+                100.0,
+                42.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Температура максимальной скорости",
+                "При этой температуре вентилятор переходит на 100%.",
+                "fanFullTemperatureC",
+                settings.fanFullTemperatureC,
+                "°C",
+                0.0,
+                100.0,
+                60.0,
+                0,
+                onSetSetting
+            )
         }
 
         Spacer(Modifier.height(16.dp))
-        SettingsSection("Служебные действия") {
-            Text("Эти команды меняют внутреннее состояние расчёта ёмкости.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsSection("Обучение емкости") {
+            MetricRow("Активно", if (status.learningActive) "Да" else "Нет")
+            if (status.learningActive) {
+                MetricRow("Энергия цикла", formatNumber(status.learningDischargeWh, 1) + " Wh")
+            }
+            MetricRow("Циклов обучения", status.learnedCycles.toString())
             Spacer(Modifier.height(12.dp))
-            Button(modifier = Modifier.fillMaxWidth(), onClick = { pendingServiceCommand = "markFull" }) {
-                Text("Отметить аккумулятор полным")
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { pendingServiceCommand = "resetLearning" }
+            ) {
+                Text("Сбросить текущее обучение")
             }
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { pendingServiceCommand = "resetLearning" }) {
-                Text("Сбросить текущее обучение")
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { pendingServiceCommand = "markFull" }
+            ) {
+                Text("Отметить аккумулятор полным")
             }
         }
     }
@@ -1688,9 +1846,13 @@ fun PresetSetting(
             rowPresets.forEach { (presetValue, label) ->
                 val selected = value != null && value.roundToInt() == presetValue.roundToInt()
                 if (selected) {
-                    Button(modifier = Modifier.weight(1f), onClick = { onSetSetting(key, presetValue) }) { Text(label) }
+                    Button(modifier = Modifier.weight(1f), onClick = { onSetSetting(key, presetValue) }) {
+                        Text(label)
+                    }
                 } else {
-                    OutlinedButton(modifier = Modifier.weight(1f), onClick = { onSetSetting(key, presetValue) }) { Text(label) }
+                    OutlinedButton(modifier = Modifier.weight(1f), onClick = { onSetSetting(key, presetValue) }) {
+                        Text(label)
+                    }
                 }
             }
             repeat(3 - rowPresets.size) { Spacer(Modifier.weight(1f)) }
@@ -1724,7 +1886,8 @@ fun EditableNumberSetting(
         title,
         description,
         formatCurrentValue(value, digits, unit),
-        "Диапазон: ${formatRangeValue(min)}–${formatRangeValue(max)} $unit; по умолчанию: ${formatNumber(defaultValue, digits)} $unit"
+        "Диапазон: ${formatRangeValue(min)}–${formatRangeValue(max)} $unit; " +
+            "по умолчанию: ${formatNumber(defaultValue, digits)} $unit"
     )
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         OutlinedTextField(
@@ -1767,7 +1930,8 @@ fun SliderSetting(
         title,
         description,
         formatCurrentValue(value, digits, unit),
-        "Диапазон: ${formatRangeValue(min)}–${formatRangeValue(max)} $unit; по умолчанию: ${formatNumber(defaultValue, digits)} $unit"
+        "Диапазон: ${formatRangeValue(min)}–${formatRangeValue(max)} $unit; " +
+            "по умолчанию: ${formatNumber(defaultValue, digits)} $unit"
     )
     Text(
         modifier = Modifier.fillMaxWidth(),
@@ -1775,7 +1939,11 @@ fun SliderSetting(
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold
     )
-    Slider(value = sliderValue, onValueChange = { sliderValue = it }, valueRange = min.toFloat()..max.toFloat())
+    Slider(
+        value = sliderValue,
+        onValueChange = { sliderValue = it },
+        valueRange = min.toFloat()..max.toFloat()
+    )
     Button(modifier = Modifier.fillMaxWidth(), onClick = { onSetSetting(key, displayValue) }) {
         Text("Применить")
     }
@@ -1804,6 +1972,7 @@ fun SettingsScreen(
     contentPadding: PaddingValues,
     boundDeviceName: String?,
     connectedDeviceAddress: String?,
+    status: PowerStatus?,
     onDisconnectClick: () -> Unit,
     onUnbindClick: () -> Unit
 ) {
@@ -1821,6 +1990,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(10.dp))
                 MetricRow("Имя", boundDeviceName ?: "PowerBank")
                 MetricRow("Состояние", "Подключена")
+                MetricRow("Версия прошивки", status?.firmwareVersion ?: "-")
                 connectedDeviceAddress?.let { MetricRow("Адрес", it) }
                 Spacer(Modifier.height(18.dp))
                 OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = onDisconnectClick) {
@@ -1872,10 +2042,16 @@ fun SignalStrengthIndicator(rssi: Int) {
         verticalAlignment = Alignment.Bottom
     ) {
         for (bar in 1..4) {
-            val height = when (bar) { 1 -> 6.dp; 2 -> 10.dp; 3 -> 14.dp; else -> 18.dp }
+            val height = when (bar) {
+                1 -> 6.dp
+                2 -> 10.dp
+                3 -> 14.dp
+                else -> 18.dp
+            }
             Box(
                 Modifier.width(4.dp).height(height).background(
-                    if (bar <= level) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    if (bar <= level) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant,
                     MaterialTheme.shapes.extraSmall
                 )
             )
