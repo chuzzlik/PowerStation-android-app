@@ -336,22 +336,26 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("MissingPermission")
     private fun startBleScan(targetAddress: String?) {
         if (!hasAllBlePermissions()) {
+            autoConnectStarted = false
             setStatusText("Нужны разрешения Bluetooth")
             return
         }
 
         val bluetoothAdapter = getSystemService(BluetoothManager::class.java).adapter
         if (bluetoothAdapter == null) {
+            autoConnectStarted = false
             setStatusText("Bluetooth не поддерживается")
             return
         }
         if (!bluetoothAdapter.isEnabled) {
+            autoConnectStarted = false
             setStatusText("Bluetooth выключен")
             return
         }
 
         val scanner = bluetoothAdapter.bluetoothLeScanner
         if (scanner == null) {
+            autoConnectStarted = false
             setStatusText("BLE-сканер недоступен")
             return
         }
@@ -558,11 +562,14 @@ class MainActivity : ComponentActivity() {
                         }
 
                         SETTINGS_CHAR_UUID -> {
-                            setConnectedState(true, device.address)
-                            setStatusText("Online")
-                            lastStatusReceivedMs = System.currentTimeMillis()
-                            startTelemetryWatchdog()
-                            sendCommand("get all")
+                            runOnUiThread {
+                                isConnectedState.value = true
+                                connectedDeviceAddressState.value = device.address
+                                statusTextState.value = "Online"
+                                lastStatusReceivedMs = System.currentTimeMillis()
+                                startTelemetryWatchdog()
+                                sendCommand("get all")
+                            }
                         }
                     }
                 }
@@ -1419,6 +1426,7 @@ fun PowerStatusDashboard(status: PowerStatus) {
             Spacer(Modifier.height(12.dp))
             MetricRow("Версия прошивки", status.firmwareVersion)
             MetricRow("Силовой выход", if (status.mosfetEnabled) "Включён" else "Выключен")
+            MetricRow("Bluetooth включён", if (status.bluetoothEnabled) "Да" else "Нет")
             MetricRow("Bluetooth", if (status.bluetoothConnected) "Подключён" else "Не подключён")
             MetricRow("Обучение ёмкости", if (status.learningActive) "Активно" else "Выключено")
             MetricRow("Энергия цикла", formatNumber(status.learningDischargeWh, 1) + " Wh")
