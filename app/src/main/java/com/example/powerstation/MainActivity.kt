@@ -35,11 +35,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,6 +58,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -1249,6 +1251,27 @@ fun StationMainScreen(
     onSetSetting: (String, Double) -> Unit,
     onServiceCommand: (String) -> Unit
 ) {
+    val tabs = listOf(MainTab.Dashboard, MainTab.Controls, MainTab.Settings)
+    val selectedPage = tabs.indexOf(selectedTab).coerceAtLeast(0)
+    val pagerState = rememberPagerState(
+        initialPage = selectedPage,
+        pageCount = { tabs.size }
+    )
+
+    LaunchedEffect(selectedTab) {
+        val targetPage = tabs.indexOf(selectedTab).coerceAtLeast(0)
+        if (pagerState.currentPage != targetPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        val currentTab = tabs[pagerState.currentPage]
+        if (currentTab != selectedTab) {
+            onTabSelected(currentTab)
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -1273,29 +1296,34 @@ fun StationMainScreen(
             }
         }
     ) { innerPadding ->
-        when (selectedTab) {
-            MainTab.Dashboard -> DashboardScreen(
-                contentPadding = innerPadding,
-                stationName = boundDeviceName ?: "PowerBank",
-                status = powerStatus
-            )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            when (tabs[page]) {
+                MainTab.Dashboard -> DashboardScreen(
+                    contentPadding = innerPadding,
+                    stationName = boundDeviceName ?: "PowerBank",
+                    status = powerStatus
+                )
 
-            MainTab.Controls -> StationControlsScreen(
-                contentPadding = innerPadding,
-                status = powerStatus,
-                settings = stationSettings,
-                onSetSetting = onSetSetting,
-                onServiceCommand = onServiceCommand
-            )
+                MainTab.Controls -> StationControlsScreen(
+                    contentPadding = innerPadding,
+                    status = powerStatus,
+                    settings = stationSettings,
+                    onSetSetting = onSetSetting,
+                    onServiceCommand = onServiceCommand
+                )
 
-            MainTab.Settings -> SettingsScreen(
-                contentPadding = innerPadding,
-                boundDeviceName = boundDeviceName,
-                connectedDeviceAddress = connectedDeviceAddress,
-                status = powerStatus,
-                onDisconnectClick = onDisconnectClick,
-                onUnbindClick = onUnbindClick
-            )
+                MainTab.Settings -> SettingsScreen(
+                    contentPadding = innerPadding,
+                    boundDeviceName = boundDeviceName,
+                    connectedDeviceAddress = connectedDeviceAddress,
+                    status = powerStatus,
+                    onDisconnectClick = onDisconnectClick,
+                    onUnbindClick = onUnbindClick
+                )
+            }
         }
     }
 }
@@ -1327,7 +1355,7 @@ fun HeaderBlock(title: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             modifier = Modifier.weight(1f),
@@ -1337,7 +1365,22 @@ fun HeaderBlock(title: String) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        AssistChip(onClick = {}, label = { Text("Online") })
+        Surface(
+            modifier = Modifier.height(36.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.secondaryContainer
+        ) {
+            Box(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Online",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
     }
 }
 
@@ -1398,17 +1441,6 @@ fun PowerStatusDashboard(status: PowerStatus) {
             }
 
             Spacer(Modifier.height(18.dp))
-            MetricGrid(
-                listOf(
-                    Triple("Мощность", formatNumber(status.powerW, 1), "W"),
-                    Triple("Средняя", formatNumber(status.averagedPowerW, 1), "W"),
-                    Triple("Напряжение", formatNumber(status.voltageV, 2), "V"),
-                    Triple("Ток", formatNumber(status.currentA, 2), "A"),
-                    Triple("Время", formatEta(status.estimatedTimeHours), "")
-                )
-            )
-
-            Spacer(Modifier.height(18.dp))
             Text("Энергия", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
@@ -1416,8 +1448,18 @@ fun PowerStatusDashboard(status: PowerStatus) {
                 modifier = Modifier.fillMaxWidth().height(14.dp)
             )
             Spacer(Modifier.height(8.dp))
-            MetricRow("Осталось", formatNumber(status.currentStoredWh, 1) + " Wh")
+            MetricRow("Текущий запас", formatNumber(status.currentStoredWh, 1) + " Wh")
             MetricRow("Обученная ёмкость", formatNumber(capacityBase, 1) + " Wh")
+
+            Spacer(Modifier.height(18.dp))
+            MetricGrid(
+                listOf(
+                    Triple("Мощность", formatNumber(status.powerW, 1), "W"),
+                    Triple("Время", formatEta(status.estimatedTimeHours), ""),
+                    Triple("Напряжение", formatNumber(status.voltageV, 2), "V"),
+                    Triple("Ток", formatNumber(status.currentA, 2), "A")
+                )
+            )
 
             Spacer(Modifier.height(18.dp))
             HorizontalDivider()
