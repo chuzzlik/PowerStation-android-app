@@ -39,34 +39,8 @@ jobs:
                   '            powerLimitW = obj.optNullableDouble("powerLimitW"),\n            powerStateDeadzoneW = obj.optNullableDouble("powerStateDeadzoneW"),\n            energyDeadzoneW = obj.optNullableDouble("energyDeadzoneW"),\n            etaAveragingSeconds = obj.optNullableDouble("etaAveragingSeconds"),',
               ),
               (
-                  '''            EditableNumberSetting(
-                "Нижний порог напряжения",''',
-                  '''            EditableNumberSetting(
-                "Мёртвая зона режима",
-                "Порог мощности для определения режима: заряд, разряд или простой.",
-                "powerStateDeadzoneW",
-                settings.powerStateDeadzoneW,
-                "W",
-                0.0,
-                20.0,
-                2.0,
-                2,
-                onSetSetting
-            )
-            EditableNumberSetting(
-                "Мёртвая зона учёта энергии",
-                "Мощность ниже этого порога не учитывается в накопленной энергии и SoC.",
-                "energyDeadzoneW",
-                settings.energyDeadzoneW,
-                "W",
-                0.0,
-                2.0,
-                0.05,
-                2,
-                onSetSetting
-            )
-            EditableNumberSetting(
-                "Нижний порог напряжения",''',
+                  '            EditableNumberSetting(\n                "Нижний порог напряжения",',
+                  '            EditableNumberSetting(\n                "Мёртвая зона режима",\n                "Порог мощности для определения режима: заряд, разряд или простой.",\n                "powerStateDeadzoneW",\n                settings.powerStateDeadzoneW,\n                "W",\n                0.0,\n                20.0,\n                2.0,\n                2,\n                onSetSetting\n            )\n            EditableNumberSetting(\n                "Мёртвая зона учёта энергии",\n                "Мощность ниже этого порога не учитывается в накопленной энергии и SoC.",\n                "energyDeadzoneW",\n                settings.energyDeadzoneW,\n                "W",\n                0.0,\n                2.0,\n                0.05,\n                2,\n                onSetSetting\n            )\n            EditableNumberSetting(\n                "Нижний порог напряжения",',
               ),
           ]
 
