@@ -1,0 +1,113 @@
+name: Patch app deadzone settings
+
+on:
+  push:
+    branches:
+      - feature
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature
+        uses: actions/checkout@v4
+        with:
+          ref: feature
+
+      - name: Patch MainActivity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/src/main/java/com/example/powerstation/MainActivity.kt")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  "    val powerLimitW: Double?,\n    val etaAveragingSeconds: Double?,",
+                  "    val powerLimitW: Double?,\n    val powerStateDeadzoneW: Double?,\n    val energyDeadzoneW: Double?,\n    val etaAveragingSeconds: Double?,",
+              ),
+              (
+                  '            "powerLimitW" -> return range(20.0, 300.0)\n            "lowCutVoltageV" -> return range(8.0, 12.0)',
+                  '            "powerLimitW" -> return range(20.0, 300.0)\n            "powerStateDeadzoneW" -> return range(0.0, 20.0)\n            "energyDeadzoneW" -> return range(0.0, 2.0)\n            "lowCutVoltageV" -> return range(8.0, 12.0)',
+              ),
+              (
+                  '            powerLimitW = obj.optNullableDouble("powerLimitW"),\n            etaAveragingSeconds = obj.optNullableDouble("etaAveragingSeconds"),',
+                  '            powerLimitW = obj.optNullableDouble("powerLimitW"),\n            powerStateDeadzoneW = obj.optNullableDouble("powerStateDeadzoneW"),\n            energyDeadzoneW = obj.optNullableDouble("energyDeadzoneW"),\n            etaAveragingSeconds = obj.optNullableDouble("etaAveragingSeconds"),',
+              ),
+              (
+                  '''            EditableNumberSetting(
+                "Лимит мощности",
+                "Мощность разряда, при превышении которой отключается выход.",
+                "powerLimitW",
+                settings.powerLimitW,
+                "W",
+                20.0,
+                300.0,
+                100.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Нижний порог напряжения",''',
+                  '''            EditableNumberSetting(
+                "Лимит мощности",
+                "Мощность разряда, при превышении которой отключается выход.",
+                "powerLimitW",
+                settings.powerLimitW,
+                "W",
+                20.0,
+                300.0,
+                100.0,
+                0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Мёртвая зона режима",
+                "Порог мощности для определения режима: заряд, разряд или простой.",
+                "powerStateDeadzoneW",
+                settings.powerStateDeadzoneW,
+                "W",
+                0.0,
+                20.0,
+                2.0,
+                2,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Мёртвая зона учёта энергии",
+                "Мощность ниже этого порога не учитывается в накопленной энергии и SoC.",
+                "energyDeadzoneW",
+                settings.energyDeadzoneW,
+                "W",
+                0.0,
+                2.0,
+                0.05,
+                2,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Нижний порог напряжения",''',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"Expected one match, got {count}: {old[:60]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit changes
+        run: |
+          rm .github/workflows/apply-deadzones.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/example/powerstation/MainActivity.kt .github/workflows/apply-deadzones.yml
+          git commit -m "Add configurable power deadzones to settings [skip ci]"
+          git push origin feature
