@@ -95,6 +95,8 @@ data class StationSettings(
     val lowSocPercent: Double?,
     val learningCorrectionAlpha: Double?,
     val powerLimitW: Double?,
+    val powerStateDeadzoneW: Double?,
+    val energyDeadzoneW: Double?,
     val etaAveragingSeconds: Double?,
     val etaIdleHoldSeconds: Double?,
     val smallScreenTimeoutSec: Double?,
@@ -773,6 +775,8 @@ class MainActivity : ComponentActivity() {
 
             "lowSocPercent" -> return range(5.0, 50.0)
             "powerLimitW" -> return range(20.0, 300.0)
+            "powerStateDeadzoneW" -> return range(0.0, 20.0)
+            "energyDeadzoneW" -> return range(0.0, 2.0)
             "lowCutVoltageV" -> return range(8.0, 12.0)
             "currentStoredWh" -> {
                 val max = status?.learnedCapacityWh?.coerceAtMost(500.0) ?: 500.0
@@ -993,6 +997,8 @@ class MainActivity : ComponentActivity() {
             lowSocPercent = obj.optNullableDouble("lowSocPercent"),
             learningCorrectionAlpha = obj.optNullableDouble("learningCorrectionAlpha"),
             powerLimitW = obj.optNullableDouble("powerLimitW"),
+            powerStateDeadzoneW = obj.optNullableDouble("powerStateDeadzoneW"),
+            energyDeadzoneW = obj.optNullableDouble("energyDeadzoneW"),
             etaAveragingSeconds = obj.optNullableDouble("etaAveragingSeconds"),
             etaIdleHoldSeconds = obj.optNullableDouble("etaIdleHoldSeconds"),
             smallScreenTimeoutSec = obj.optNullableDouble("smallScreenTimeoutSec"),
@@ -1619,6 +1625,30 @@ fun StationControlsScreen(
                 300.0,
                 100.0,
                 0,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Мёртвая зона режима",
+                "Порог мощности для определения режима: заряд, разряд или простой.",
+                "powerStateDeadzoneW",
+                settings.powerStateDeadzoneW,
+                "W",
+                0.0,
+                20.0,
+                2.0,
+                2,
+                onSetSetting
+            )
+            EditableNumberSetting(
+                "Мёртвая зона учёта энергии",
+                "Мощность ниже этого порога не учитывается в накопленной энергии и SoC.",
+                "energyDeadzoneW",
+                settings.energyDeadzoneW,
+                "W",
+                0.0,
+                2.0,
+                0.05,
+                2,
                 onSetSetting
             )
             EditableNumberSetting(
